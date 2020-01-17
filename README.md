@@ -2,6 +2,8 @@
 
 Keycloak is an Open Source Identity and Access Management solution for modern Applications and Services.
 
+Note:  This version of Keycloak Gatkeeper is modified from the project on the public github to make mutual TLS work properly.  There is a Docker release for this version on docker.io in the devsec2 repository.
+
 This repository contains the source code for the Keycloak Gatekeeper. The Gatekeeper is most happy in the company of Keycloak, but is also able to make friends with other OpenID Connect providers. The service supports both access tokens in browser cookie or bearer tokens.
 
 **Note:** This version of Keycloak-gatekeeper is modified from the version on the public web.  I hope to be allowed to send this to the open source project soon.  Until then, here is a list of the changes:
