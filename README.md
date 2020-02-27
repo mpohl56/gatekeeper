@@ -2,7 +2,16 @@
 
 Keycloak is an Open Source Identity and Access Management solution for modern Applications and Services.
 
+
+**Note:  This version of Keycloak Gatkeeper is modified from the project on the public github to make mutual TLS work properly.  There is a Docker release for this version on docker.io in the devsec2 repository.**
+
 This repository contains the source code for the Keycloak Gatekeeper. The Gatekeeper is most happy in the company of Keycloak, but is also able to make friends with other OpenID Connect providers. The service supports both access tokens in browser cookie or bearer tokens.
+
+**Note:** This version of Keycloak-gatekeeper is modified from the version on the public web.  I hope to be allowed to send this to the open source project soon.  Until then, here is a list of the changes:
+
+ * Modified the --tls-client-certificate option to really implement a client cert properly.  The internet version was setting the cert passed in with this parameter as the CA cert.
+ * Added two command line options to deal with the CA cert for connecting from gatekeeper to Keycloak and adding a keyfile for the client certificate passed in with the --tls-client-certificate parameter.  
+ * The new parameters are:  --tls-ca-server and --tls-client-key.
 
 ## Help and Documentation
 
@@ -27,12 +36,14 @@ Please remember to provide a good summary, description as well as steps to repro
 
 To run Gatekeeper download the distribution from our [website](https://www.keycloak.org/downloads.html). Extract it and run:
 
-    ./keycloak-gatekeeper[.exe] 
+
+    ./keycloak-gatekeeper[.exe]
+
 
 Alternatively, you can use the Docker image by running:
 
     docker run -it --rm quay.io/keycloak/keycloak-gatekeeper
-    
+
 For more details refer to the [Documentation](https://www.keycloak.org/docs/latest/securing_apps/index.html#_keycloak_generic_adapter).
 
 

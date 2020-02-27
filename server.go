@@ -354,9 +354,10 @@ func (r *oauthProxy) createForwardingProxy() error {
 // Run starts the proxy service
 func (r *oauthProxy) Run() error {
 	listener, err := r.createHTTPListener(listenerConfig{
-		ca:                  r.config.TLSCaCertificate,
-		certificate:         r.config.TLSCertificate,
-		clientCert:          r.config.TLSClientCertificate,
+		ca:          r.config.TLSCaCertificate,
+		certificate: r.config.TLSCertificate,
+		//		clientCert:          r.config.TLSClientCertificate,
+		caCertificateServer: r.config.TLSCaServer,
 		hostnames:           r.config.Hostnames,
 		letsEncryptCacheDir: r.config.LetsEncryptCacheDir,
 		listen:              r.config.Listen,
@@ -366,6 +367,8 @@ func (r *oauthProxy) Run() error {
 		useFileTLS:          r.config.TLSPrivateKey != "" && r.config.TLSCertificate != "",
 		useLetsEncryptTLS:   r.config.UseLetsEncrypt,
 		useSelfSignedTLS:    r.config.EnabledSelfSignedTLS,
+		enableOneWayTLS:     r.config.EnableOneWayTLS,
+
 	})
 
 	if err != nil {
@@ -420,9 +423,13 @@ func (r *oauthProxy) Run() error {
 
 // listenerConfig encapsulate listener options
 type listenerConfig struct {
-	ca                  string   // the path to a certificate authority
-	certificate         string   // the path to the certificate if any
-	clientCert          string   // the path to a client certificate to use for mutual tls
+	ca          string // the path to a certificate authority
+	certificate string // the path to the certificate if any
+	//  Not sure we need these since this cert is for client actions not listener
+	//	clientCert          string   // the path to a client certificate to use for mutual tls
+	//	clientKey 				  string   // The path to the client key to the certificate above
+	caCertificateServer string   // the path to the ca certificate to authenticate incoming clients
+
 	hostnames           []string // list of hostnames the service will respond to
 	letsEncryptCacheDir string   // the path to cache letsencrypt certificates
 	listen              string   // the interface to bind the listener to
@@ -432,6 +439,8 @@ type listenerConfig struct {
 	useFileTLS          bool     // indicates we are using certificates from files
 	useLetsEncryptTLS   bool     // indicates we are using letsencrypt
 	useSelfSignedTLS    bool     // indicates we are using the self-signed tls
+	enableOneWayTLS     bool     // Allows connecting client to connect with one-way TLS even if we have loaded a CA
+
 }
 
 // ErrHostNotConfigured indicates the hostname was not configured
@@ -538,15 +547,22 @@ func (r *oauthProxy) createHTTPListener(config listenerConfig) (net.Listener, er
 		listener = tls.NewListener(listener, tlsConfig)
 
 		// @check if we doing mutual tls
-		if config.clientCert != "" {
-			caCert, err := ioutil.ReadFile(config.clientCert)
+
+		if config.caCertificateServer != "" {
+			caCert, err := ioutil.ReadFile(config.caCertificateServer)
+
 			if err != nil {
 				return nil, err
 			}
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
 			tlsConfig.ClientCAs = caCertPool
-			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+
+			//Here we check it one-way TLS has been enabled.  If it has we don't want to
+			//require verification of client certs so if its true we skip the require
+			if (config.enableOneWayTLS == false ){
+				tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+			}
 		}
 	}
 
@@ -572,37 +588,32 @@ func (r *oauthProxy) createUpstreamProxy(upstream *url.URL) error {
 		upstream.Host = "domain-sock"
 		upstream.Scheme = unsecureScheme
 	}
-	// create the upstream tls configure
-	//nolint:gas
-	tlsConfig := &tls.Config{InsecureSkipVerify: r.config.SkipUpstreamTLSVerify}
 
+
+	var tlsConfig *tls.Config
+	tlsConfig = &tls.Config{InsecureSkipVerify: r.config.SkipUpstreamTLSVerify}
 	// are we using a client certificate
 	// @TODO provide a means of reload on the client certificate when it expires. I'm not sure if it's just a
 	// case of update the http transport settings - Also we to place this go-routine?
+
+
 	if r.config.TLSClientCertificate != "" {
-		cert, err := ioutil.ReadFile(r.config.TLSClientCertificate)
+
+		err := r.loadClientCerts(tlsConfig)
+
 		if err != nil {
-			r.log.Error("unable to read client certificate", zap.String("path", r.config.TLSClientCertificate), zap.Error(err))
 			return err
 		}
-		pool := x509.NewCertPool()
-		pool.AppendCertsFromPEM(cert)
-		tlsConfig.ClientCAs = pool
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 
-	{
-		// @check if we have a upstream ca to verify the upstream
-		if r.config.UpstreamCA != "" {
-			r.log.Info("loading the upstream ca", zap.String("path", r.config.UpstreamCA))
-			ca, err := ioutil.ReadFile(r.config.UpstreamCA)
-			if err != nil {
-				return err
-			}
-			pool := x509.NewCertPool()
-			pool.AppendCertsFromPEM(ca)
-			tlsConfig.RootCAs = pool
+	// @check if we have a upstream ca to verify the upstream
+	if r.config.UpstreamCA != "" {
+
+		err := r.loadCACerts(tlsConfig)
+		if err != nil {
+			return err
 		}
+
 	}
 
 	// create the forwarding proxy
@@ -628,6 +639,38 @@ func (r *oauthProxy) createUpstreamProxy(upstream *url.URL) error {
 	}
 
 	return nil
+}
+
+
+func (r *oauthProxy)loadClientCerts(tlsConfig *tls.Config) error {
+
+	certAndKey, err := tls.LoadX509KeyPair(r.config.TLSClientCertificate, r.config.TLSClientKey)
+	if err != nil {
+		r.log.Error("unable to create Certificate Object for tls config. Components are: certificate files ",zap.String("cert path", r.config.TLSClientCertificate),
+	                   zap.String("key path", r.config.TLSClientKey), zap.Error(err))
+		return err
+	}
+
+	tlsConfig.Certificates = []tls.Certificate{certAndKey}
+	r.log.Info("loaded the outgoing client cert and associated key", zap.String("path", r.config.TLSClientCertificate))
+
+	return nil
+}
+
+func (r *oauthProxy)loadCACerts(tlsConfig *tls.Config)  error {
+
+	r.log.Info("loading the upstream ca", zap.String("path", r.config.UpstreamCA))
+	ca, err := ioutil.ReadFile(r.config.UpstreamCA)
+	if err != nil {
+		return err
+	}
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(ca)
+	tlsConfig.RootCAs = pool
+	r.log.Info("Sucessfully loaded the upstream ca", zap.String("path", r.config.UpstreamCA))
+
+	return nil
+
 }
 
 // createTemplates loads the custom template
@@ -663,6 +706,29 @@ func (r *oauthProxy) newOpenIDClient() (*oidc.Client, oidc.ProviderConfig, *http
 		r.config.DiscoveryURL = strings.TrimSuffix(r.config.DiscoveryURL, "/.well-known/openid-configuration")
 	}
 
+
+	var tlsConfig *tls.Config
+	tlsConfig = &tls.Config{InsecureSkipVerify: r.config.SkipUpstreamTLSVerify}
+
+	if r.config.TLSClientCertificate != "" {
+
+		err := r.loadClientCerts(tlsConfig)
+
+		if err != nil {
+			return nil, config, nil, err
+		}
+	}
+
+	// @check if we have a upstream ca to verify the upstream
+	if r.config.UpstreamCA != "" {
+
+		err := r.loadCACerts(tlsConfig)
+		if err != nil {
+			return nil, config, nil, err
+		}
+
+	}
+
 	// step: create a idp http client
 	hc := &http.Client{
 		Transport: &http.Transport{
@@ -678,10 +744,8 @@ func (r *oauthProxy) newOpenIDClient() (*oidc.Client, oidc.ProviderConfig, *http
 
 				return nil, nil
 			},
-			TLSClientConfig: &tls.Config{
-				//nolint:gas
-				InsecureSkipVerify: r.config.SkipOpenIDProviderTLSVerify,
-			},
+
+			TLSClientConfig: tlsConfig,
 		},
 		Timeout: time.Second * 10,
 	}

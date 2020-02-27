@@ -1,7 +1,9 @@
 NAME=keycloak-gatekeeper
-AUTHOR=keycloak
-REGISTRY=docker.io
-GOVERSION ?= 1.10.2
+
+AUTHOR=
+REGISTRY=
+GOVERSION=1.13.1
+
 ROOT_DIR=${PWD}
 HARDWARE=$(shell uname -m)
 GIT_SHA=$(shell git --no-pager describe --always --dirty)
@@ -34,7 +36,8 @@ static: golang
 
 docker-build:
 	@echo "--> Compiling the project"
-	docker run --rm \
+
+	sudo docker run --rm \
 		-v ${ROOT_DIR}:/go/src/github.com/${AUTHOR}/${NAME} \
 		-w /go/src/github.com/${AUTHOR}/${NAME} \
 		-e GOOS=linux golang:${GOVERSION} \
@@ -42,7 +45,8 @@ docker-build:
 
 docker-test:
 	@echo "--> Running the docker test"
-	docker run --rm -ti -p 3000:3000 \
+
+	sudo docker run --rm -ti -p 3000:3000 \
     -v ${ROOT_DIR}/config.yml:/etc/keycloak/config.yml:ro \
     -v ${ROOT_DIR}/tests:/opt/tests:ro \
     ${REGISTRY}/${AUTHOR}/${NAME}:${VERSION} --config /etc/keycloak/config.yml

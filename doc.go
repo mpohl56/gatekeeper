@@ -27,6 +27,7 @@ import (
 )
 
 var (
+
 	release  = "8.0.2"
 	gitsha   = "no gitsha provided"
 	compiled = "0"
@@ -264,6 +265,10 @@ type Config struct {
 	SecureCookie bool `json:"secure-cookie" yaml:"secure-cookie" usage:"enforces the cookie to be secure"`
 	// HTTPOnlyCookie enforces the cookie as http only
 	HTTPOnlyCookie bool `json:"http-only-cookie" yaml:"http-only-cookie" usage:"enforces the cookie is in http only mode"`
+
+	// EnableOneWayTLS allows server to switch to one-way TLS when a CA cert has been loaded.
+	EnableOneWayTLS bool `json:"enable-one-way-TLS" yaml:"enable-one-way-TLS" usage:"turns off two-way TLS but keeps one-way TLS when a CA cert is loaded"`
+
 	// SameSiteCookie enforces cookies to be send only to same site requests.
 	SameSiteCookie string `json:"same-site-cookie" yaml:"same-site-cookie" usage:"enforces cookies to be send only to same site requests according to the policy (can be Strict|Lax|None)"`
 
@@ -282,6 +287,13 @@ type Config struct {
 	TLSCaPrivateKey string `json:"tls-ca-key" yaml:"tls-ca-key" usage:"path the ca private key, used by the forward signing proxy"`
 	// TLSClientCertificate is path to a client certificate to use for outbound connections
 	TLSClientCertificate string `json:"tls-client-certificate" yaml:"tls-client-certificate" usage:"path to the client certificate for outbound connections in reverse and forwarding proxy modes"`
+
+	// TLSClientKey is path to a client key which matchs the public certificate to use for outbound connections
+	// go TLS requires you to load these together
+	TLSClientKey string `json:"tls-client-key" yaml:"tls-client-key" usage:"path to the client key that matches the certificate for outbound connections in reverse and forwarding proxy modes"`
+	// TLSCaServer is path to a ca certificate used to allow inbound clients connecting to the server.
+	TLSCaServer string `json:"tls-ca-server" yaml:"tls-ca-server" usage:"path to the ca certificate for inbound connections in reverse and forwarding proxy modes"`
+
 	// SkipUpstreamTLSVerify skips the verification of any upstream tls
 	SkipUpstreamTLSVerify bool `json:"skip-upstream-tls-verify" yaml:"skip-upstream-tls-verify" usage:"skip the verification of any upstream TLS"`
 
