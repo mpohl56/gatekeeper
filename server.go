@@ -368,6 +368,7 @@ func (r *oauthProxy) Run() error {
 		useLetsEncryptTLS:   r.config.UseLetsEncrypt,
 		useSelfSignedTLS:    r.config.EnabledSelfSignedTLS,
 		enableOneWayTLS:     r.config.EnableOneWayTLS,
+
 	})
 
 	if err != nil {
@@ -428,6 +429,7 @@ type listenerConfig struct {
 	//	clientCert          string   // the path to a client certificate to use for mutual tls
 	//	clientKey 				  string   // The path to the client key to the certificate above
 	caCertificateServer string   // the path to the ca certificate to authenticate incoming clients
+
 	hostnames           []string // list of hostnames the service will respond to
 	letsEncryptCacheDir string   // the path to cache letsencrypt certificates
 	listen              string   // the interface to bind the listener to
@@ -438,6 +440,7 @@ type listenerConfig struct {
 	useLetsEncryptTLS   bool     // indicates we are using letsencrypt
 	useSelfSignedTLS    bool     // indicates we are using the self-signed tls
 	enableOneWayTLS     bool     // Allows connecting client to connect with one-way TLS even if we have loaded a CA
+
 }
 
 // ErrHostNotConfigured indicates the hostname was not configured
@@ -544,14 +547,17 @@ func (r *oauthProxy) createHTTPListener(config listenerConfig) (net.Listener, er
 		listener = tls.NewListener(listener, tlsConfig)
 
 		// @check if we doing mutual tls
+
 		if config.caCertificateServer != "" {
 			caCert, err := ioutil.ReadFile(config.caCertificateServer)
+
 			if err != nil {
 				return nil, err
 			}
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
 			tlsConfig.ClientCAs = caCertPool
+
 			//Here we check it one-way TLS has been enabled.  If it has we don't want to
 			//require verification of client certs so if its true we skip the require
 			if (config.enableOneWayTLS == false ){
@@ -582,6 +588,7 @@ func (r *oauthProxy) createUpstreamProxy(upstream *url.URL) error {
 		upstream.Host = "domain-sock"
 		upstream.Scheme = unsecureScheme
 	}
+
 
 	var tlsConfig *tls.Config
 	tlsConfig = &tls.Config{InsecureSkipVerify: r.config.SkipUpstreamTLSVerify}
@@ -633,6 +640,7 @@ func (r *oauthProxy) createUpstreamProxy(upstream *url.URL) error {
 
 	return nil
 }
+
 
 func (r *oauthProxy)loadClientCerts(tlsConfig *tls.Config) error {
 
@@ -698,6 +706,7 @@ func (r *oauthProxy) newOpenIDClient() (*oidc.Client, oidc.ProviderConfig, *http
 		r.config.DiscoveryURL = strings.TrimSuffix(r.config.DiscoveryURL, "/.well-known/openid-configuration")
 	}
 
+
 	var tlsConfig *tls.Config
 	tlsConfig = &tls.Config{InsecureSkipVerify: r.config.SkipUpstreamTLSVerify}
 
@@ -735,6 +744,7 @@ func (r *oauthProxy) newOpenIDClient() (*oidc.Client, oidc.ProviderConfig, *http
 
 				return nil, nil
 			},
+
 			TLSClientConfig: tlsConfig,
 		},
 		Timeout: time.Second * 10,

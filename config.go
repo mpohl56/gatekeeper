@@ -116,12 +116,14 @@ func (r *Config) isValid() error {
 	if r.TLSClientCertificate != "" && !fileExists(r.TLSClientCertificate) {
 		return fmt.Errorf("the tls client certificate %s does not exist", r.TLSClientCertificate)
 	}
+
 	if r.TLSClientKey != "" && !fileExists(r.TLSClientKey) {
 		return fmt.Errorf("the tls client certificate key %s does not exist", r.TLSClientKey)
 	}
 	if r.TLSCaServer != "" && !fileExists(r.TLSCaServer) {
 		return fmt.Errorf("the ca certificate file %s used to authenticate connecting clients does not exist", r.TLSCaServer)
 	}
+
 	if r.UseLetsEncrypt && r.LetsEncryptCacheDir == "" {
 		return fmt.Errorf("the letsencrypt cache dir has not been set")
 	}
